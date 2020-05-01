@@ -11,7 +11,7 @@ class Boid {
         this.maxBirdsInPerception = 15;
     }
 
-    edges() {
+    wrap() {
         //wraps boids around screen
         if (this.position.x > width) {
           this.position.x = 0;
