@@ -1,20 +1,18 @@
-// Flocking Boids
-// Daniel Shiffman
-// https://www.youtube.com/watch?v=mhjuuHl6qHM
 class Boid {
     constructor() {
         this.position = createVector(random(width), random(height));
         this.velocity = p5.Vector.random2D();
-        this.velocity.setMag(random(2, 4));
+        this.velocity.limit(4);
         this.acceleration = createVector();
-        this.maxForce = 0.2;
-        this.maxSpeed = 4;
-        this.perception = 50;
-        this.maxBirdsInPerception = 5;
+        this.maxForce = random(0.1, 0.3);
+        this.maxSpeed = 5;
+        this.perceptionDist = perceptionDistSlider.value();
+        this.perceptionAngle = perceptionAngleSlider.value();
+        this.maxBirdsInPerception = 15;
     }
 
-    //wraps boids around screen
     edges() {
+        //wraps boids around screen
         if (this.position.x > width) {
           this.position.x = 0;
         } else if (this.position.x < 0) {
@@ -25,7 +23,7 @@ class Boid {
         } else if (this.position.y < 0) {
           this.position.y = height;
         }
-      }
+    }
       
     flock(boids) {
         let align = this.align(boids);
@@ -36,27 +34,27 @@ class Boid {
         cohesion.mult(cohesionSlider.value());
         separation.mult(separationSlider.value());
 
-        //resulting vector is sum of forces
+        //resulting acceleration vector is sum of forces (zeros each update)
         this.acceleration.add(cohesion).add(align).add(separation);
     }
 
     align(boids) {
         let steer = createVector();
         let countOthers = 0;
-
-        for (const other of quadTree.getItemsInRadius(this.position.x, this.position.y, this.perception, this.maxBirdsInPerception)) {
-            steer.add(other.velocity);
-            countOthers++;
+        for (const other of quadTree.getItemsInRadius(this.position.x, 
+            this.position.y, this.perceptionDist, this.maxBirdsInPerception)) {
+            let toOther = p5.Vector.sub(other.position, this.position);
+            if ((-1 * this.perceptionAngle) < toOther.angleBetween(this.velocity) < this.perceptionAngle) {
+                steer.add(other.velocity);
+                countOthers++;
+            }
         }
-
         if (countOthers > 0) {
-            //formula for steering by Craig Reynolds
             steer.div(countOthers);
             steer.setMag(this.maxSpeed);
             steer.sub(this.velocity);
             steer.limit(this.maxForce);
         }
-        
         return steer;
     }
 
@@ -64,9 +62,13 @@ class Boid {
         let avgLocation = createVector();
         let countOthers = 0;
 
-        for (const other of quadTree.getItemsInRadius(this.position.x, this.position.y, this.perception, this.maxBirdsInPerception)) {
-            avgLocation.add(other.position);
-            countOthers++;
+        for (const other of quadTree.getItemsInRadius(this.position.x, 
+            this.position.y, this.perceptionDist, this.maxBirdsInPerception)) {
+            let toOther = p5.Vector.sub(other.position, this.position);
+            if ((-1 * this.perceptionAngle) < toOther.angleBetween(this.velocity) < this.perceptionAngle) {
+                avgLocation.add(other.position);
+                countOthers++;
+            }
         }
 
         if (countOthers > 0) {
@@ -84,13 +86,20 @@ class Boid {
         let avgLocation = createVector();
         let countOthers = 0;
 
-        for (const other of quadTree.getItemsInRadius(this.position.x, this.position.y, this.perception, this.maxBirdsInPerception)) {
-            let diff = p5.Vector.sub(this.position, other.position);
-            let distance = diff.mag();
-            if (distance === 0) continue;
-            diff.div(distance * distance); 
-            avgLocation.add(diff);
-            countOthers++;
+        for (const other of quadTree.getItemsInRadius(this.position.x, 
+            this.position.y, this.perceptionDist, this.maxBirdsInPerception)) {
+            let toOther = p5.Vector.sub(other.position, this.position);
+            if ((-1 * this.perceptionAngle) < toOther.angleBetween(this.velocity) < this.perceptionAngle) {
+                let diff = p5.Vector.sub(this.position, other.position);
+                let distance = diff.mag();
+                if (distance < 0.2) {
+                    diff.div(Math.pow(distance, 3));
+                } else {
+                    diff.div(Math.pow(distance, 2)); 
+                }
+                avgLocation.add(diff);
+                countOthers++;
+            }
         }
 
         if (countOthers > 0) {
@@ -107,41 +116,35 @@ class Boid {
         this.position.add(this.velocity);
         this.velocity.add(this.acceleration);
         this.acceleration = createVector(0, 0);
+        this.perceptionDist = perceptionDistSlider.value();
+        this.perceptionAngle = perceptionAngleSlider.value();
     }
 
-    show(boids) {
+    display(boids) {
         //initial color 
-        let red1 = 0;
-        let green1 = 100;
-        let blue1 = 255;
+        let RGB1 = [0, 100, 255];
 
         //color in high density
-        let red2 = 255;
-        let green2 = 0;
-        let blue2 = 0;
+        let RGB2 = [255, 0, 0];
 
         let colorPerception = 35;
         let countOthers = 0;
         let threshold = 15;
 
-        for (const other of quadTree.getItemsInRadius(this.position.x, this.position.y, colorPerception, threshold)) {
+        for (const other of quadTree.getItemsInRadius(this.position.x, 
+            this.position.y, colorPerception, threshold)) {
             countOthers++;
         }
-
+    
         let percent = countOthers / threshold;
         let antiPercent = 1 - percent;
 
-        red2 = red2 * percent;
-        green2 = green2 * percent;
-        blue2 = blue2 * percent;
+        RGB1 = RGB1.map(function(x) { return x * antiPercent; });
+        RGB2 = RGB2.map(function(x) { return x * percent; });
 
-        red1 = red1 * antiPercent;
-        green1 = green1 * antiPercent;
-        blue1 = blue1 * antiPercent;
-
-        red = (red1 + red2) / 2;
-        green = (green1 + green2) / 2;
-        blue = (blue1 + blue2) / 2;
+        red = (RGB1[0] + RGB2[0]) / 2;
+        green = (RGB1[1] + RGB2[1]) / 2;
+        blue = (RGB1[2] + RGB2[2]) / 2;
 
         strokeWeight(12);
         stroke(red, green, blue);
