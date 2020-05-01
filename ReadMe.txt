@@ -1,1 +1,0 @@
-Modeling flocks of birds, using the p5.js library. Based on the Boids algorithm by Craig Reynolds. https://www.red3d.com/cwr/boids/ Quadtree.js and rect.js by TheTastefulToasty.
