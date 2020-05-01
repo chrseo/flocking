@@ -9,7 +9,7 @@ class Flocks {
 
     simulate() {
         for (const boid of flock) {
-            boid.edges();
+            boid.wrap();
             boid.flock(flock);
             boid.update();
             boid.display(flock);
